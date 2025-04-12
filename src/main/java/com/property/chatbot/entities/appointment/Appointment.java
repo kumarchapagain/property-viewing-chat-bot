@@ -1,5 +1,7 @@
 package com.property.chatbot.entities.appointment;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.property.chatbot.entities.user.User;
 import com.property.chatbot.utils.appointment.AppointmentStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -24,6 +26,11 @@ public class Appointment {
     @Version
     @Column(name = "version")
     private Integer version;
+
+    @OneToOne
+    @JoinColumn(name = "user_id")
+    @JsonIgnore
+    private User user;
 
     private LocalDateTime appointmentDateTime;
 

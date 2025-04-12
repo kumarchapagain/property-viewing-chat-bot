@@ -2,15 +2,18 @@ package com.property.chatbot.services.chat;
 
 import com.property.chatbot.dto.ChatResponse;
 import com.property.chatbot.entities.appointment.Appointment;
+import com.property.chatbot.entities.user.User;
 import com.property.chatbot.services.appointment.AppointmentService;
-import com.property.chatbot.utils.appointment.AppointmentInfoExtractor;
+import com.property.chatbot.services.user.CustomUserDetailsService;
+import com.property.chatbot.utils.appointment.AppointmentParser;
 import com.property.chatbot.utils.appointment.AppointmentStatus;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
 
-import static com.property.chatbot.utils.appointment.AppointmentInfoExtractor.isAppointmentInfoComplete;
+import static com.property.chatbot.utils.appointment.AppointmentParser.isAppointmentInfoComplete;
 
 
 @Service
@@ -19,27 +22,37 @@ public class ChatService {
 
     private final AiChatService aiChatService;
     private final AppointmentService appointmentService;
+    private final CustomUserDetailsService userDetailsService;
 
-    public ChatService(AiChatService aiChatService, AppointmentService appointmentService) {
+    public ChatService(AiChatService aiChatService, AppointmentService appointmentService, CustomUserDetailsService userDetailsService) {
         this.aiChatService = aiChatService;
         this.appointmentService = appointmentService;
+        this.userDetailsService = userDetailsService;
     }
 
     public ChatResponse processMessage(String message) {
         log.info("Processing user message: {}", message);
-
-        Appointment extractedAppointment = AppointmentInfoExtractor.extractAppointmentInformation(message);
+        User currentUser = getCurrentUser();
+        Appointment appointment = appointmentService.getAppointmentByUser(currentUser);
+        if (appointment == null) {
+           appointment = new Appointment();
+           appointment.setUser(currentUser);
+        }
+        Appointment extractedAppointment = AppointmentParser.extractAppointmentInformation(message, appointment);
 
         if (extractedAppointment != null) {
+            ChatResponse chatResponse = null;
             if (isAppointmentInfoComplete(extractedAppointment)) {
-                extractedAppointment.setStatus(AppointmentStatus.CONFIRMED);
-                extractedAppointment = appointmentService.saveAppointment(extractedAppointment);
+                extractedAppointment.setStatus(AppointmentStatus.COMPLETED);
                 String confirmationMessage = generateAppointmentConfirmation(extractedAppointment);
-                return new ChatResponse(confirmationMessage, true, extractedAppointment);
+                chatResponse = ChatResponse.builder().message(confirmationMessage).isInfoGathered(true).appointment(extractedAppointment).build();
             } else {
+                extractedAppointment.setStatus(AppointmentStatus.PENDING);
                 String missingInfoPrompt = generateMissingInfoPrompt(extractedAppointment);
-                return new ChatResponse(missingInfoPrompt, false, extractedAppointment);
+                chatResponse = ChatResponse.builder().message(missingInfoPrompt).isInfoGathered(false).appointment(extractedAppointment).build();
             }
+            appointmentService.saveAppointment(extractedAppointment);
+            return chatResponse;
         }
         String aiResponse = aiChatService.getChatResponse(message);
         log.debug("AI response: {}", aiResponse);
@@ -96,6 +109,10 @@ public class ChatService {
                 appointment.getTenantName(), appointment.getTenantEmail(),
                 appointment.getId()
         );
+    }
+
+    private User getCurrentUser() {
+        return userDetailsService.getUserByUsername(SecurityContextHolder.getContext().getAuthentication().getName());
     }
 
 }

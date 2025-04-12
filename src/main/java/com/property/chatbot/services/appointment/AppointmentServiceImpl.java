@@ -1,6 +1,7 @@
 package com.property.chatbot.services.appointment;
 
 import com.property.chatbot.entities.appointment.Appointment;
+import com.property.chatbot.entities.user.User;
 import com.property.chatbot.repositories.appointment.AppointmentRepository;
 import com.property.chatbot.utils.appointment.AppointmentStatus;
 import jakarta.transaction.Transactional;
@@ -28,8 +29,8 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
-    public Optional<Appointment> getAppointmentById(Long id) {
-        return appointmentRepository.findById(id);
+    public Appointment getAppointmentByUser(User user) {
+        return appointmentRepository.findByUser(user).orElse(null);
     }
 
     @Override

@@ -10,12 +10,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Slf4j
-public class AppointmentInfoExtractor {
+public class AppointmentParser {
 
-    public static Appointment extractAppointmentInformation(String message) {
-
-        Appointment appointment = new Appointment();
-        appointment.setStatus(AppointmentStatus.PENDING);
+    public static Appointment extractAppointmentInformation(String message, Appointment appointment) {
 
         extractDateTime(message, appointment);
 
